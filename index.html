@@ -277,8 +277,8 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     { key: "name",            label: "门店",       num: false },
     { key: "yesterdayRevenue",label: "昨日(万)",   num: true },
     { key: "yesterdayTarget", label: "指标(万)",   num: true },
-    { key: "yesterdayRate",   label: "完成率",     num: true },
-    { key: "mtdRevenue",      label: "月累计(万)", num: true },
+    { key: "yesterdayRate",   label: "日完成率",   num: true },
+    { key: "mtdRevenue",      label: "月营收", num: true },
     { key: "mtdRate",         label: "月完成率",   num: true },
     { key: "wowSameDay",      label: "环比上周同日", num: true },
     { key: "wowBatchSameDay", label: "环比上周同日批次", num: true },
@@ -322,7 +322,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     var below = stores.filter(function (s) { return s.yesterdayRate != null && s.yesterdayRate < 100; }).length;
     var lossTotal = losses.reduce(function (a, s) { return a + (s.lossGap || 0); }, 0);
 
-    var HEADS = ["门店", "编码", "区域", "店长", "昨日(万)", "指标(万)", "完成率", "月累计(万)", "月完成率", "环比上周同日", "环比上周同日批次", "环比上周同日批单", "周环比", "平衡点(万)", "预计利润(万)", "利润指标对比(万)", "预警"];
+    var HEADS = ["门店", "编码", "区域", "店长", "昨日(万)", "指标(万)", "日完成率", "月营收", "月完成率", "环比上周同日", "环比上周同日批次", "环比上周同日批单", "周环比", "平衡点(万)", "预计利润(万)", "利润指标对比(万)", "预警"];
     var WIDTHS = [170, 55, 55, 55, 75, 75, 60, 80, 65, 80, 85, 85, 65, 75, 80, 80, 55];
     var LHEADS = ["门店", "区域", "店长", "月累计(万)", "预计月末(万)", "盈亏平衡(万)", "缺口(万)"];
 
