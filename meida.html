@@ -232,13 +232,14 @@
     {name:'门店', sortable:true, key:function(s){return (s.branch||s.name||'');},
       render:function(s){
         var branch = s.branch || s.name || DASH;
+        var label = s.code ? s.code + '-' + branch : branch;  /* 与直营同款:K编号-店名 */
         var subs = [];
         if (s.name && s.branch && s.name!==s.branch) subs.push(s.name);
         var mgr = [];
         if (s.region) mgr.push(s.region);
         if (s.manager) mgr.push(s.manager);
         if (mgr.length) subs.push(mgr.join(' · '));  /* 与直营同款:区域 · 店长 */
-        return '<div class="store-name" title="'+esc(s.name||'')+'">'+esc(branch)+'</div>'+
+        return '<div class="store-name" title="'+esc(s.name||'')+'">'+esc(label)+'</div>'+
                (subs.length?'<div class="store-sub">'+esc(subs.join(' · '))+'</div>':'');
       }},
     {name:'牌级', sortable:true, key:function(s){
