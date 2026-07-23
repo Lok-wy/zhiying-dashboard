@@ -82,6 +82,7 @@ html, body { margin: 0; padding: 0; }
 .p0 .sub { font-size: 11.5px; color: var(--kimi-color-text-tertiary); font-variant-numeric: tabular-nums; }
 .p0 output.rate { color: var(--kimi-color-text-primary); }
 .p0 output.rate.bad { color: var(--kimi-color-danger, #d1242f); }
+.p0 output.rate.pos { color: var(--kimi-color-positive, var(--kimi-color-success, #1a7f37)); }
 .p0 .sub.bad { color: var(--kimi-color-danger, #d1242f); font-weight: 500; }
 
 .p1-card { flex: 1; min-inline-size: 240px; display: flex; flex-direction: column; gap: 8px; justify-content: center; border-inline-start: 1px solid var(--kimi-color-border); padding-inline-start: 32px; }
@@ -190,7 +191,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
 }
 </style>
 </head>
-<body>
+<body><div style="display:flex;gap:6px;align-items:center;padding:7px 12px;background:#fff;border-bottom:1px solid #e5e6eb;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"><a href="index.html" style="color:#4d6bfe;font-weight:700;text-decoration:none;padding:3px 10px;border:1px solid #4d6bfe;border-radius:6px;background:#f5f6f7;">直营日报</a><a href="meida.html" style="color:#8a8f99;text-decoration:none;padding:3px 10px;border:1px solid #e5e6eb;border-radius:6px;">美大运维</a></div>
 <main class="widget kimi-host-safe-context kimi-construction-grid" data-kimi-root>
   <header class="hd kimi-host-safe-header" data-kimi-priority="p3">
     <h1>直营门店经营日报</h1>
@@ -335,7 +336,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     var sumPairs = [
       ["昨日完成（万元）", xCell(wanE(t.yesterdayRevenue), "sNumB", "Number"), "月累计（万元）", xCell(wanE(t.mtdRevenue), "sNumB", "Number")],
       ["昨日指标（万元）", xCell(wanE(t.yesterdayTarget), "sNum", "Number"), "月度目标（万元）", xCell(wanE(t.monthBudget), "sNum", "Number")],
-      ["昨日完成率", t.yesterdayRate == null ? xCell("—") : xCell(t.yesterdayRate.toFixed(1), t.yesterdayRate < 100 ? "sPctR" : "sPct", "Number"),
+      ["昨日完成率", t.yesterdayRate == null ? xCell("—") : xCell(t.yesterdayRate.toFixed(1), t.yesterdayRate < 100 ? "sPctR" : "sPctG2", "Number"),
        "月度完成率", t.progress == null ? xCell("—") : xCell(t.progress.toFixed(1), t.progress < timeProg ? "sPctR" : "sPctG2", "Number")],
       ["未完成门店", xCell(below + " 家", below > 0 ? "sRed" : null), "序时进度", xCell(timeProg.toFixed(1) + "%（" + d.daysElapsed + "/" + d.daysInMonth + " 天）")]
     ];
@@ -369,7 +370,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
       rows.push("<Row>" + xCell(kname(s)) + xCell(s.code, "sGray") + xCell(s.region, "sGray") + xCell(s.storeManager || "", "sGray") +
         xCell(wanE(s.yesterdayRevenue), "sNum", "Number") +
         xCell(wanE(s.yesterdayTarget), "sNum", "Number") +
-        (s.yesterdayRate == null ? xCell("—") : xCell(s.yesterdayRate.toFixed(1), s.yesterdayRate < 100 ? "sPctR" : "sPct", "Number")) +
+        (s.yesterdayRate == null ? xCell("—") : xCell(s.yesterdayRate.toFixed(1), s.yesterdayRate < 100 ? "sPctR" : "sPctG2", "Number")) +
         xCell(wanE(s.mtdRevenue), "sNum", "Number") +
         (s.mtdRate == null ? xCell("—") : xCell(s.mtdRate.toFixed(1), s.mtdRate < timeProg ? "sPctR" : "sPctG2", "Number")) +
         (s.wowSameDay == null ? xCell("—") : xCell(s.wowSameDay.toFixed(1), s.wowSameDay < 0 ? "sPctR" : "sPctG", "Number")) +
@@ -436,6 +437,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     var yr = $('[data-f="yRate"]');
     yr.textContent = fmtPct(t.yesterdayRate);
     yr.classList.toggle("bad", t.yesterdayRate != null && t.yesterdayRate < 100);
+    yr.classList.toggle("pos", t.yesterdayRate != null && t.yesterdayRate >= 100);
     var below = (d.stores || []).filter(notHQ).filter(function (s) { return s.yesterdayRate != null && s.yesterdayRate < 100; }).length;
     var ys = $('[data-f="yStores"]');
     ys.textContent = below + " 家未达标";
@@ -559,7 +561,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     });
 
     var html = rows.map(function (s) {
-      var yCls = s.yesterdayRate != null && s.yesterdayRate < 100 ? "bad" : "";
+      var yCls = s.yesterdayRate == null ? "" : (s.yesterdayRate < 100 ? "bad" : "pos");
       var tProg = d.daysInMonth ? (d.daysElapsed / d.daysInMonth * 100) : 0;
       var mCls = s.mtdRate == null ? "" : (s.mtdRate < tProg ? "bad" : "pos");
       return '<tr' + (s.lossRisk ? ' class="risk"' : "") + ">" +
