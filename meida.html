@@ -87,7 +87,7 @@
   tbody tr:hover td{background:#faf4e8;}
   tbody tr.row-bad:hover td{background:#f7e4de;}
 
-  .store-name{font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;}
+  .store-name{font-weight:600;color:#3d352c;white-space:normal;overflow-wrap:break-word;}
   .store-sub{font-size:11px;color:var(--ink-2);}
   .grade-badge{
     display:inline-block;padding:1px 7px;border-radius:9px;
@@ -234,7 +234,10 @@
         var branch = s.branch || s.name || DASH;
         var subs = [];
         if (s.name && s.branch && s.name!==s.branch) subs.push(s.name);
-        if (s.manager) subs.push('店长 '+s.manager);
+        var mgr = [];
+        if (s.region) mgr.push(s.region);
+        if (s.manager) mgr.push(s.manager);
+        if (mgr.length) subs.push(mgr.join(' · '));  /* 与直营同款:区域 · 店长 */
         return '<div class="store-name" title="'+esc(s.name||'')+'">'+esc(branch)+'</div>'+
                (subs.length?'<div class="store-sub">'+esc(subs.join(' · '))+'</div>':'');
       }},
