@@ -135,6 +135,15 @@
   .refresh-btn:hover{background:var(--gold-deep);}
   .refresh-btn:disabled{opacity:.55;cursor:default;}
 
+  /* ── 下载 Excel 按钮(与直营日报同款描边样式) ── */
+  .dl-btn{
+    font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;
+    color:var(--gold-deep);background:var(--panel);border:1px solid var(--gold);
+    border-radius:6px;padding:3px 12px;height:26px;white-space:nowrap;
+  }
+  .dl-btn:hover{background:var(--bg);}
+  .dl-btn:disabled{opacity:.55;cursor:default;}
+
   .demo-tag{
     position:fixed;right:10px;bottom:10px;z-index:10;
     background:rgba(120,100,60,.85);color:#fff;
@@ -160,6 +169,7 @@
         <span>数据日期 <b id="m-dataDate">—</b></span>
         <span>更新于 <b id="m-updatedAt">—</b></span>
         
+        <button type="button" class="dl-btn" id="dlBtn">下载 Excel</button>
       </div>
     </div>
     <div class="stat-grid" id="statGrid"></div>
@@ -489,6 +499,108 @@
            '<div class="sub">'+esc(sub)+'</div></div>';
   }
 
+  /* ===== Excel 导出(SpreadsheetML,与直营日报同款:样式+自动筛选,取数口径与看板一致) ===== */
+  function xCell(v, style, type) {
+    return '<Cell' + (style ? ' ss:StyleID="' + style + '"' : "") + '><Data ss:Type="' + (type || "String") + '">' + (type === "Number" ? v : esc(v)) + "</Data></Cell>";
+  }
+  function buildXls(d) {
+    var stores = (d.stores || []).slice();
+    /* 与看板默认一致:经营评分降序,无数据沉底 */
+    stores.sort(function(a, b){
+      var x=num(a.score), y=num(b.score);
+      if(x===null&&y===null) return 0;
+      if(x===null) return 1;
+      if(y===null) return -1;
+      return y-x;
+    });
+    var gold=0,silver=0,bronze=0,none=0,yMt=0,yDp=0,yBad=0,fDay=0,fMon=0,fDayN=0,fMonN=0;
+    stores.forEach(function(s){
+      if(s.grade==='金牌') gold++;
+      else if(s.grade==='银牌') silver++;
+      else if(s.grade==='铜牌') bronze++;
+      else none++;
+      var y=s.week||s.yesterday;
+      if(y){ var a=num(y.mtGood),b=num(y.dpGood),c=num(y.bad);
+        if(a!==null)yMt+=a; if(b!==null)yDp+=b; if(c!==null)yBad+=c; }
+      var f=s.fav;
+      if(f){ var fd=num(f.day),fm=num(f.month);
+        if(fd!==null){fDay+=fd;fDayN++;} if(fm!==null){fMon+=fm;fMonN++;} }
+    });
+    var total = num(d.storeCount)!==null ? d.storeCount : stores.length;
+    var HEADS=["门店","编码","区域","店长","牌级","经营评分","美团星级","点评星级","近7日好评·美团","近7日好评·点评","近7日差评","收藏打卡·当日","收藏打卡·本月","本月好评环比","环比对比(本月vs上月)"];
+    var WIDTHS=[180,60,70,60,55,60,60,60,80,80,65,75,75,75,105];
+    var rows=[];
+    rows.push("<Row>"+xCell("美团大众点评 · 门店线上运维看板","sTitle")+"</Row>");
+    rows.push("<Row>"+xCell("数据日期 "+(d.dataDate||"—")+" · 更新于 "+(d.updatedAt||"—")+" · 共 "+total+" 家门店","sLbl")+"</Row>");
+    rows.push("<Row></Row>");
+    rows.push("<Row>"+xCell("门店总数","sLbl")+xCell(total+" 家","sNumB")+xCell("牌级分布","sLbl")+xCell("金 "+gold+" · 银 "+silver+" · 铜 "+bronze+(none?" · 暂无等级 "+none+" 家":""))+"</Row>");
+    rows.push("<Row>"+xCell("近7日好评 · 美团","sLbl")+xCell(yMt,"sGrnN","Number")+xCell("近7日好评 · 点评","sLbl")+xCell(yDp,"sGrnN","Number")+"</Row>");
+    rows.push("<Row>"+xCell("近7日差评","sLbl")+(yBad>0?xCell(yBad,"sRedN","Number"):xCell(0,"sNum","Number"))+xCell("收藏打卡 · 当日","sLbl")+(fDayN?xCell(fDay,"sNumB","Number"):xCell("—"))+xCell("本月累计","sLbl")+(fMonN?xCell(fMon,"sNum","Number"):xCell("—"))+"</Row>");
+    rows.push("<Row></Row>");
+    rows.push("<Row>"+xCell("门店明细(共 "+stores.length+" 家 · 按经营评分降序)","sSec")+"</Row>");
+    var hdrRow=rows.length+1;
+    rows.push("<Row>"+HEADS.map(function(h){return xCell(h,"sHead");}).join("")+"</Row>");
+    stores.forEach(function(s){
+      var branch=s.branch||s.name||"";
+      var label=s.code? s.code+"-"+branch : branch;
+      var y=s.week||s.yesterday||{};
+      var f=s.fav||{};
+      var r=momPct(s);
+      var momCell, momRef;
+      if(!r){ momCell=xCell("—"); momRef=xCell(""); }
+      else if(r.pct===null){ momCell=(r.dir==='up'?xCell("新增","sGrn"):xCell("持平","sGray")); momRef=xCell(r.cur+" vs "+r.prev,"sGray"); }
+      else { momCell=xCell(r.pct.toFixed(1), r.dir==='down'?"sPctR":(r.dir==='up'?"sPctG":"sPct"), "Number"); momRef=xCell(r.cur+" vs "+r.prev,"sGray"); }
+      rows.push("<Row>"+
+        xCell(label)+xCell(s.code||"","sGray")+xCell(s.region||"","sGray")+xCell(s.manager||"","sGray")+
+        xCell(gradeInfo(s.grade).text)+
+        (num(s.score)===null?xCell("—"):xCell(s.score,"sNum","Number"))+
+        (num(s.mtStar)===null?xCell("—"):xCell(s.mtStar.toFixed(1),"sNum","Number"))+
+        (num(s.dpStar)===null?xCell("—"):xCell(s.dpStar.toFixed(1),"sNum","Number"))+
+        (num(y.mtGood)===null?xCell("—"):xCell(y.mtGood,"sNum","Number"))+
+        (num(y.dpGood)===null?xCell("—"):xCell(y.dpGood,"sNum","Number"))+
+        (num(y.bad)===null?xCell("—"):(y.bad>0?xCell(y.bad,"sRedN","Number"):xCell(y.bad,"sNum","Number")))+
+        (num(f.day)===null?xCell("—"):xCell(f.day,"sNum","Number"))+
+        (num(f.month)===null?xCell("—"):xCell(f.month,"sNum","Number"))+
+        momCell+momRef+"</Row>");
+    });
+    var endRow=rows.length;
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n'+
+      '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel">'+
+      "<Styles>"+
+      '<Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Microsoft YaHei" ss:Size="10"/></Style>'+
+      '<Style ss:ID="sHead"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Bold="1"/><Interior ss:Color="#F5EFE4" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'+
+      '<Style ss:ID="sTitle"><Font ss:FontName="Microsoft YaHei" ss:Size="14" ss:Bold="1" ss:Color="#8F6C2C"/></Style>'+
+      '<Style ss:ID="sSec"><Font ss:FontName="Microsoft YaHei" ss:Size="11" ss:Bold="1"/></Style>'+
+      '<Style ss:ID="sLbl"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#7A6F5F"/></Style>'+
+      '<Style ss:ID="sGray"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#999999"/></Style>'+
+      '<Style ss:ID="sNum"><NumberFormat ss:Format="General"/></Style>'+
+      '<Style ss:ID="sNumB"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Bold="1"/><NumberFormat ss:Format="General"/></Style>'+
+      '<Style ss:ID="sPct"><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
+      '<Style ss:ID="sPctR"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
+      '<Style ss:ID="sPctG"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="+0.0&quot;%&quot;;-0.0&quot;%&quot;"/></Style>'+
+      '<Style ss:ID="sGrn"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/></Style>'+
+      '<Style ss:ID="sGrnN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="General"/></Style>'+
+      '<Style ss:ID="sRedN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="General"/></Style>'+
+      "</Styles>"+
+      '<Worksheet ss:Name="美大运维"><Table>'+
+      WIDTHS.map(function(w){return '<Column ss:Width="'+w+'"/>';}).join("")+
+      rows.join("")+"</Table>"+
+      '<AutoFilter x:Range="R'+hdrRow+'C1:R'+endRow+'C'+HEADS.length+'" xmlns="urn:schemas-microsoft-com:office:excel"/>'+
+      "</Worksheet></Workbook>";
+  }
+  function downloadXls(){
+    if(!currentData) return;
+    try{
+      var xml=buildXls(currentData);
+      var blob=new Blob(["﻿"+xml],{type:"application/vnd.ms-excel"});
+      var a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="美大运维看板_"+(currentData.dataDate||"")+".xls";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(a.href);},5000);
+    }catch(e){/* ignore */}
+  }
+
   function render(d){
     if(!d || !Array.isArray(d.stores)) return;
     currentData=d;
@@ -557,6 +669,7 @@
       }
     }catch(e){}
   });
+  document.getElementById('dlBtn').addEventListener('click',downloadXls);
   if(window.DaimonWidget && typeof window.DaimonWidget.onStatusChange==='function'){
     window.DaimonWidget.onStatusChange(function(){ syncRefreshBtn(); });
   }
