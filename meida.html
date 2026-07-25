@@ -655,12 +655,13 @@
   });
   var refreshBtn=document.getElementById('refreshBtn');
   function syncRefreshBtn(){
+    if(!refreshBtn) return;
     var st=(window.DaimonWidget && window.DaimonWidget.status) || '';
     var running=String(st).indexOf('run')>=0 || String(st).indexOf('load')>=0;
     refreshBtn.disabled=running;
     refreshBtn.textContent=running?'更新中…':'更新数据';
   }
-  refreshBtn.addEventListener('click',function(){
+  if(refreshBtn) refreshBtn.addEventListener('click',function(){
     try{
       if(window.DaimonWidget && typeof window.DaimonWidget.emit==='function'){
         window.DaimonWidget.emit('submit',{});
