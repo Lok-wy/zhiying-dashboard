@@ -209,7 +209,7 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
 }
 </style>
 </head>
-<body><div style="display:flex;gap:12px;align-items:center;padding:12px 18px;background:#fffdf8;border-bottom:1px solid #e8e0d2;font-size:16px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"><a href="index.html" style="color:#8f6c2c;font-weight:700;text-decoration:none;padding:8px 22px;border:1.5px solid #b08a3e;border-radius:9px;background:#faf6ee;">直营日报</a><a href="meida.html" style="color:#7a6f5f;text-decoration:none;padding:8px 22px;border:1.5px solid #e8e0d2;border-radius:9px;">美大运维</a><span style="margin-left:auto;color:#b3b8c0;font-size:12px;">数据 2026-07-30 · 更新 07-31 09:44</span></div>
+<body><div style="display:flex;gap:12px;align-items:center;padding:12px 18px;background:#fffdf8;border-bottom:1px solid #e8e0d2;font-size:16px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"><a href="index.html" style="color:#8f6c2c;font-weight:700;text-decoration:none;padding:8px 22px;border:1.5px solid #b08a3e;border-radius:9px;background:#faf6ee;">直营日报</a><a href="meida.html" style="color:#7a6f5f;text-decoration:none;padding:8px 22px;border:1.5px solid #e8e0d2;border-radius:9px;">美大运维</a><span style="margin-left:auto;color:#b3b8c0;font-size:12px;">数据 2026-07-30 · 更新 07-31 14:34</span></div>
 <main class="widget kimi-host-safe-context kimi-construction-grid" data-kimi-root>
   <header class="hd kimi-host-safe-header" data-kimi-priority="p3">
     <h1>直营门店经营日报</h1>
@@ -304,6 +304,8 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     { key: "wowBatchSameDay", label: "环比上周同日批次", num: true },
     { key: "wowPerBatchSameDay", label: "环比上周同日批单", num: true },
     { key: "wowWeek",         label: "周环比",     num: true },
+    { key: "forecastMonth",   label: "预计月营收", num: true },
+    { key: "revenueTargetGap", label: "营收指标对比(万)", num: true },
     { key: "breakEven",       label: "平衡点(万)", num: true },
     { key: "forecastProfit",  label: "预计利润(万)", num: true },
     { key: "profitDiff",      label: "利润指标对比(万)", num: true },
@@ -342,8 +344,8 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
     var below = stores.filter(function (s) { return s.yesterdayRate != null && s.yesterdayRate < 100; }).length;
     var lossTotal = losses.reduce(function (a, s) { return a + (s.lossGap || 0); }, 0);
 
-    var HEADS = ["门店", "编码", "区域", "店长", "昨日(万)", "昨日指标(万)", "日完成率", "月营收", "月完成率", "月指标预计差额(万)", "环比上周同日", "环比上周同日批次", "环比上周同日批单", "周环比", "平衡点(万)", "预计利润(万)", "利润指标对比(万)", "预警"];
-    var WIDTHS = [170, 55, 55, 55, 75, 75, 60, 80, 65, 80, 80, 85, 85, 65, 75, 80, 80, 55];
+    var HEADS = ["门店", "编码", "区域", "店长", "昨日(万)", "昨日指标(万)", "日完成率", "月营收", "月完成率", "月指标预计差额(万)", "环比上周同日", "环比上周同日批次", "环比上周同日批单", "周环比", "预计月营收", "营收指标对比(万)", "平衡点(万)", "预计利润(万)", "利润指标对比(万)", "预警"];
+    var WIDTHS = [170, 55, 55, 55, 75, 75, 60, 80, 65, 80, 80, 85, 85, 65, 80, 80, 75, 80, 80, 55];
     var LHEADS = ["门店", "区域", "店长", "月累计(万)", "预计月末(万)", "盈亏平衡(万)", "缺口(万)"];
 
     var rows = [];
@@ -397,6 +399,8 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
         (s.wowBatchSameDay == null ? xCell("—") : xCell(s.wowBatchSameDay.toFixed(1), s.wowBatchSameDay < 0 ? "sPctR" : "sPctG", "Number")) +
         (s.wowPerBatchSameDay == null ? xCell("—") : xCell(s.wowPerBatchSameDay.toFixed(1), s.wowPerBatchSameDay < 0 ? "sPctR" : "sPctG", "Number")) +
         (s.wowWeek == null ? xCell("—") : xCell(s.wowWeek.toFixed(1), s.wowWeek < 0 ? "sPctR" : "sPctG", "Number")) +
+        (s.forecastMonth == null ? xCell("—") : xCell(wanE(s.forecastMonth), "sNum", "Number")) +
+        (s.monthBudget == null ? xCell("—") : (function () { var p = s.forecastMonth - s.monthBudget; return xCell(wanE(p), p < 0 ? "sRedN" : "sGrnN", "Number"); })()) +
         (s.breakEven == null ? xCell("—") : xCell(s.breakEven, "sNum", "Number")) +
         (s.breakEven == null ? xCell("—") : (function () { var p = s.forecastMonth - s.breakEven * 10000; return xCell(wanE(p), p < 0 ? "sRedN" : "sGrnN", "Number"); })()) +
         ((s.breakEven == null || s.profitBudget == null) ? xCell("—") : (function () { var p = s.forecastMonth - s.breakEven * 10000 - s.profitBudget * 10000; return xCell(wanE(p), p < 0 ? "sRedN" : "sGrnN", "Number"); })()) +
@@ -575,6 +579,10 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
         va = a.monthBudget == null ? null : (a.forecastMonth - a.monthBudget) / 10000;
         vb = b.monthBudget == null ? null : (b.forecastMonth - b.monthBudget) / 10000;
       }
+      if (k === "revenueTargetGap") {
+        va = a.monthBudget == null ? null : (a.forecastMonth - a.monthBudget) / 10000;
+        vb = b.monthBudget == null ? null : (b.forecastMonth - b.monthBudget) / 10000;
+      }
       if (k === "name") { va = a.name; vb = b.name; }
       /* 无数据（—）的行始终排在最后 */
       if (va == null && vb == null) return 0;
@@ -600,13 +608,15 @@ html[data-daimon-size-tier="compact"] .hd .meta { display: none; }
         "<td>" + fmtWow(s.wowBatchSameDay) + "</td>" +
         "<td>" + fmtWow(s.wowPerBatchSameDay) + "</td>" +
         "<td>" + fmtWow(s.wowWeek) + "</td>" +
+        "<td>" + (s.forecastMonth == null ? '<span class="muted">—</span>' : fmtWan(s.forecastMonth)) + "</td>" +
+        "<td>" + (s.monthBudget == null ? '<span class="muted">—</span>' : (function () { var p = (s.forecastMonth - s.monthBudget) / 10000; return '<span class="' + (p < 0 ? "neg" : "pos") + '">' + (p > 0 ? "+" : "") + p.toFixed(2) + "</span>"; })()) + "</td>" +
         "<td>" + (s.breakEven == null ? '<span class="muted">—</span>' : s.breakEven) + "</td>" +
         "<td>" + (s.breakEven == null ? '<span class="muted">—</span>' : (function () { var p = s.forecastMonth / 10000 - s.breakEven; return '<span class="' + (p < 0 ? "neg" : "pos") + '">' + (p > 0 ? "+" : "") + p.toFixed(2) + "</span>"; })()) + "</td>" +
         "<td>" + ((s.breakEven == null || s.profitBudget == null) ? '<span class="muted">—</span>' : (function () { var p = s.forecastMonth / 10000 - s.breakEven - s.profitBudget; return '<span class="' + (p < 0 ? "neg" : "pos") + '">' + (p > 0 ? "+" : "") + p.toFixed(2) + "</span>"; })()) + "</td>" +
         "<td>" + (s.lossRisk ? '<span class="warn-dot">● 亏损</span>' : '<span class="muted">—</span>') + "</td>" +
         "</tr>";
     }).join("");
-    $('[data-f="tbody"]').innerHTML = html || '<tr><td colspan="15" class="muted">无匹配门店</td></tr>';
+    $('[data-f="tbody"]').innerHTML = html || '<tr><td colspan="' + COLS.length + '" class="muted">无匹配门店</td></tr>';
 
     var note = $('[data-f="tblNote"]');
     if (note) {
