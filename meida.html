@@ -108,7 +108,6 @@
   .cell-sub{font-size:11px;color:var(--ink-2);}
   .bad-num{font-weight:700;}
   .bad-num.pos{color:var(--red);}
-  .mom-pct{font-weight:600;}
   .dash{color:var(--muted);}
 
   /* ── 工具栏(区域筛选/店名搜索) ── */
@@ -225,15 +224,24 @@
     if(g==='铜牌') return {cls:'grade-bronze', text:'铜牌'};
     return {cls:'grade-none', text:(g && g!=='暂无等级') ? g : '暂无等级'};
   }
-  /* 本月好评环比：(month vs lastMonth) 同口径合计 */
-  function momPct(st){
-    var m = st.month, lm = st.lastMonth;
-    if(!m || !lm) return null;
-    var cur = (num(m.mtGood)||0)+(num(m.dpGood)||0);
-    var prev = (num(lm.mtGood)||0)+(num(lm.dpGood)||0);
-    if(prev===0) return cur>0 ? {pct:null, dir:'up', cur:cur, prev:prev} : {pct:null, dir:'flat', cur:cur, prev:prev};
-    var p = (cur-prev)/prev*100;
-    return {pct:p, dir:p>0?'up':(p<0?'down':'flat'), cur:cur, prev:prev};
+  function goodTotal(period){
+    if(!period) return null;
+    var mt=num(period.mtGood), dp=num(period.dpGood);
+    if(mt===null&&dp===null) return null;
+    return (mt||0)+(dp||0);
+  }
+  function goodCell(period){
+    if(!period) return DASH;
+    var mt=num(period.mtGood), dp=num(period.dpGood);
+    if(mt===null&&dp===null) return DASH;
+    return '<div>美团 +'+(mt===null?'—':mt)+'</div>'+
+           '<div class="cell-sub">大众 +'+(dp===null?'—':dp)+'</div>';
+  }
+  function goodText(period){
+    if(!period) return '—';
+    var mt=num(period.mtGood), dp=num(period.dpGood);
+    if(mt===null&&dp===null) return '—';
+    return '美团 '+(mt===null?'—':mt)+' / 大众 '+(dp===null?'—':dp);
   }
 
   /* ---------- 列定义 ---------- */
@@ -277,14 +285,9 @@
         return '<span class="star">★ '+v.toFixed(1)+'</span>'+fluctMark(s.dpStarFluctuate);
       }},
     {name:'近7日好评', sortable:true, numeric:true,
-      key:function(s){ var y=s.week||s.yesterday; if(!y) return null; return (num(y.mtGood)||0)+(num(y.dpGood)||0);},
+      key:function(s){ return goodTotal(s.week||s.yesterday);},
       render:function(s){
-        var y=s.week||s.yesterday;
-        if(!y) return DASH;
-        var mt=num(y.mtGood), dp=num(y.dpGood);
-        if(mt===null&&dp===null) return DASH;
-        return '<div>美团 +'+(mt===null?'—':mt)+'</div>'+
-               '<div class="cell-sub">点评 +'+(dp===null?'—':dp)+'</div>';
+        return goodCell(s.week||s.yesterday);
       }},
     {name:'近7日差评', sortable:true, numeric:true,
       key:function(s){ var y=s.week||s.yesterday; return y? num(y.bad):null;},
@@ -305,23 +308,15 @@
         return '<div>当日 +'+(d===null?'—':d)+'</div>'+
                '<div class="cell-sub">本月 '+(m===null?'—':m)+'</div>';
       }},
-    {name:'本月好评环比', sortable:true, numeric:true,
-      key:function(s){ var r=momPct(s); if(!r||r.pct===null) return null; return r.pct;},
+    {name:'本月累计', sortable:true, numeric:true,
+      key:function(s){ return goodTotal(s.month);},
       render:function(s){
-        var r=momPct(s);
-        if(!r) return DASH;
-        var head;
-        if(r.pct===null){
-          head = '<span class="mom-pct '+(r.dir==='up'?'arrow-up':'arrow-flat')+'">'+
-                 (r.dir==='up'?'新增':'持平')+'</span>';
-        }else{
-          var cls = r.dir==='up'?'arrow-up':(r.dir==='down'?'arrow-down':'arrow-flat');
-          var sign = r.pct>0?'+':'';
-          head = '<span class="mom-pct '+cls+'">'+sign+r.pct.toFixed(1)+'%</span>';
-        }
-        var arr = r.dir==='up'?'↑':(r.dir==='down'?'↓':'→');
-        return head+' <span class="'+(r.dir==='up'?'arrow-up':(r.dir==='down'?'arrow-down':'arrow-flat'))+'">'+arr+'</span>'+
-               '<div class="cell-sub">'+r.cur+' vs '+r.prev+'</div>';
+        return goodCell(s.month);
+      }},
+    {name:'上月总计', sortable:true, numeric:true,
+      key:function(s){ return goodTotal(s.lastMonth);},
+      render:function(s){
+        return goodCell(s.lastMonth);
       }}
   ];
 
@@ -484,7 +479,7 @@
         '<span class="badge-dot" style="background:var(--bronze)"></span>'+bronze,
         (none?('暂无等级 '+none+' 家'):'金 / 银 / 铜'))+
       stat('近7日好评 · 美团', yMtN?'+'+yMt:DASH.replace(/<[^>]+>/g,'—'), '美团渠道近7天新增')+
-      stat('近7日好评 · 点评', yDpN?'+'+yDp:DASH.replace(/<[^>]+>/g,'—'), '点评渠道近7天新增')+
+      stat('近7日好评 · 大众', yDpN?'+'+yDp:DASH.replace(/<[^>]+>/g,'—'), '大众渠道近7天新增')+
       statBad('近7日差评', yBadN?yBad:'—', yBad>0?'需跟进处理':'近7天无差评')+
       stat('收藏打卡 · 当日', fDayN?'+'+fDay:'—', '本月累计 '+(fMonN?fMon:'—'));
   }
@@ -527,8 +522,8 @@
         if(fd!==null){fDay+=fd;fDayN++;} if(fm!==null){fMon+=fm;fMonN++;} }
     });
     var total = num(d.storeCount)!==null ? d.storeCount : stores.length;
-    var HEADS=["门店","编码","区域","店长","牌级","经营评分","美团星级","点评星级","近7日好评·美团","近7日好评·点评","近7日差评","收藏打卡·当日","收藏打卡·本月","本月好评环比","环比对比(本月vs上月)"];
-    var WIDTHS=[180,60,70,60,55,60,60,60,80,80,65,75,75,75,105];
+    var HEADS=["门店","编码","区域","店长","牌级","经营评分","美团星级","点评星级","近7日好评·美团","近7日好评·大众","近7日差评","收藏打卡·当日","收藏打卡·本月","本月累计(美团/大众)","上月总计(美团/大众)"];
+    var WIDTHS=[180,60,70,60,55,60,60,60,80,80,65,75,75,110,110];
     var rows=[];
     rows.push("<Row>"+xCell("美团大众点评 · 门店线上运维看板","sTitle")+"</Row>");
     rows.push("<Row>"+xCell("数据日期 "+(d.dataDate||"—")+" · 更新于 "+(d.updatedAt||"—")+" · 共 "+total+" 家门店","sLbl")+"</Row>");
@@ -545,11 +540,6 @@
       var label=s.code? s.code+"-"+branch : branch;
       var y=s.week||s.yesterday||{};
       var f=s.fav||{};
-      var r=momPct(s);
-      var momCell, momRef;
-      if(!r){ momCell=xCell("—"); momRef=xCell(""); }
-      else if(r.pct===null){ momCell=(r.dir==='up'?xCell("新增","sGrn"):xCell("持平","sGray")); momRef=xCell(r.cur+" vs "+r.prev,"sGray"); }
-      else { momCell=xCell(r.pct.toFixed(1), r.dir==='down'?"sPctR":(r.dir==='up'?"sPctG":"sPct"), "Number"); momRef=xCell(r.cur+" vs "+r.prev,"sGray"); }
       rows.push("<Row>"+
         xCell(label)+xCell(s.code||"","sGray")+xCell(s.region||"","sGray")+xCell(s.manager||"","sGray")+
         xCell(gradeInfo(s.grade).text)+
@@ -561,7 +551,7 @@
         (num(y.bad)===null?xCell("—"):(y.bad>0?xCell(y.bad,"sRedN","Number"):xCell(y.bad,"sNum","Number")))+
         (num(f.day)===null?xCell("—"):xCell(f.day,"sNum","Number"))+
         (num(f.month)===null?xCell("—"):xCell(f.month,"sNum","Number"))+
-        momCell+momRef+"</Row>");
+        xCell(goodText(s.month))+xCell(goodText(s.lastMonth))+"</Row>");
     });
     var endRow=rows.length;
     return '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n'+
@@ -575,9 +565,6 @@
       '<Style ss:ID="sGray"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#999999"/></Style>'+
       '<Style ss:ID="sNum"><NumberFormat ss:Format="General"/></Style>'+
       '<Style ss:ID="sNumB"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Bold="1"/><NumberFormat ss:Format="General"/></Style>'+
-      '<Style ss:ID="sPct"><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
-      '<Style ss:ID="sPctR"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
-      '<Style ss:ID="sPctG"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="+0.0&quot;%&quot;;-0.0&quot;%&quot;"/></Style>'+
       '<Style ss:ID="sGrn"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/></Style>'+
       '<Style ss:ID="sGrnN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="General"/></Style>'+
       '<Style ss:ID="sRedN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="General"/></Style>'+
