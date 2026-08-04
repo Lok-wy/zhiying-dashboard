@@ -51,11 +51,6 @@
   .summary-title{font-size:15px;font-weight:600;letter-spacing:.5px;color:var(--gold-deep);}
   .summary-meta{font-size:11px;color:var(--ink-2);display:flex;gap:12px;flex-wrap:wrap;}
   .summary-meta b{color:var(--ink);font-weight:600;}
-  .warning-banner{
-    display:none;margin:0 0 9px;padding:7px 10px;border-radius:8px;
-    background:#fff5df;border:1px solid #e3bf73;color:#8f6c2c;
-    font-size:12px;font-weight:600;line-height:1.45;
-  }
   .stat-grid{
     display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;
   }
@@ -113,7 +108,7 @@
   .cell-sub{font-size:11px;color:var(--ink-2);}
   .bad-num{font-weight:700;}
   .bad-num.pos{color:var(--red);}
-  .missing-review{color:var(--red);font-weight:600;}
+  .mom-pct{font-weight:600;}
   .dash{color:var(--muted);}
 
   /* ── 工具栏(区域筛选/店名搜索) ── */
@@ -166,7 +161,7 @@
 </style>
 </head>
 <body>
-<div style="display:flex;gap:12px;align-items:center;padding:12px 18px;background:#fffdf8;border-bottom:1px solid #e8e0d2;font-size:16px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"><a href="index.html" style="color:#7a6f5f;text-decoration:none;padding:8px 22px;border:1.5px solid #e8e0d2;border-radius:9px;">直营日报</a><a href="meida.html" style="color:#8f6c2c;font-weight:700;text-decoration:none;padding:8px 22px;border:1.5px solid #b08a3e;border-radius:9px;background:#faf6ee;">美大运维</a><span style="margin-left:auto;color:#b3b8c0;font-size:12px;">数据 2026-08-03 · 更新 08-04 11:05</span></div><style>.wrap{height:calc(100vh - 63px) !important;}</style><div class="wrap">
+<div style="display:flex;gap:12px;align-items:center;padding:12px 18px;background:#fffdf8;border-bottom:1px solid #e8e0d2;font-size:16px;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;"><a href="index.html" style="color:#7a6f5f;text-decoration:none;padding:8px 22px;border:1.5px solid #e8e0d2;border-radius:9px;">直营日报</a><a href="meida.html" style="color:#8f6c2c;font-weight:700;text-decoration:none;padding:8px 22px;border:1.5px solid #b08a3e;border-radius:9px;background:#faf6ee;">美大运维</a></div><style>.wrap{height:calc(100vh - 63px) !important;}</style><div class="wrap">
   <div class="panel summary">
     <div class="summary-head">
       <div class="summary-title">美团大众点评 · 门店线上运维看板</div>
@@ -177,7 +172,6 @@
         <button type="button" class="dl-btn" id="dlBtn">下载 Excel</button>
       </div>
     </div>
-    <div class="warning-banner" id="warningBanner"></div>
     <div class="stat-grid" id="statGrid"></div>
   </div>
 
@@ -231,31 +225,15 @@
     if(g==='铜牌') return {cls:'grade-bronze', text:'铜牌'};
     return {cls:'grade-none', text:(g && g!=='暂无等级') ? g : '暂无等级'};
   }
-  function goodTotal(period){
-    if(!period) return null;
-    var mt=num(period.mtGood), dp=num(period.dpGood);
-    if(mt===null&&dp===null) return null;
-    return (mt||0)+(dp||0);
-  }
-  function goodCell(period){
-    if(!period) return DASH;
-    var mt=num(period.mtGood), dp=num(period.dpGood);
-    if(mt===null&&dp===null) return '<div>'+goodPart('美团', mt)+'</div><div class="cell-sub">'+goodPart('大众', dp)+'</div>';
-    return '<div>'+goodPart('美团', mt)+'</div>'+
-           '<div class="cell-sub">'+goodPart('大众', dp)+'</div>';
-  }
-  function goodPart(label,v){
-    if(v===null) return label+' <span class="missing-review">未抓到</span>';
-    return label+' +'+v;
-  }
-  function goodText(period){
-    if(!period) return '—';
-    var mt=num(period.mtGood), dp=num(period.dpGood);
-    return goodTextPart('美团', mt)+' / '+goodTextPart('大众', dp);
-  }
-  function goodTextPart(label,v){
-    if(v===null) return label+' 未抓到';
-    return label+' '+v;
+  /* 本月好评环比：(month vs lastMonth) 同口径合计 */
+  function momPct(st){
+    var m = st.month, lm = st.lastMonth;
+    if(!m || !lm) return null;
+    var cur = (num(m.mtGood)||0)+(num(m.dpGood)||0);
+    var prev = (num(lm.mtGood)||0)+(num(lm.dpGood)||0);
+    if(prev===0) return cur>0 ? {pct:null, dir:'up', cur:cur, prev:prev} : {pct:null, dir:'flat', cur:cur, prev:prev};
+    var p = (cur-prev)/prev*100;
+    return {pct:p, dir:p>0?'up':(p<0?'down':'flat'), cur:cur, prev:prev};
   }
 
   /* ---------- 列定义 ---------- */
@@ -299,9 +277,14 @@
         return '<span class="star">★ '+v.toFixed(1)+'</span>'+fluctMark(s.dpStarFluctuate);
       }},
     {name:'近7日好评', sortable:true, numeric:true,
-      key:function(s){ return goodTotal(s.week||s.yesterday);},
+      key:function(s){ var y=s.week||s.yesterday; if(!y) return null; return (num(y.mtGood)||0)+(num(y.dpGood)||0);},
       render:function(s){
-        return goodCell(s.week||s.yesterday);
+        var y=s.week||s.yesterday;
+        if(!y) return DASH;
+        var mt=num(y.mtGood), dp=num(y.dpGood);
+        if(mt===null&&dp===null) return DASH;
+        return '<div>美团 +'+(mt===null?'—':mt)+'</div>'+
+               '<div class="cell-sub">点评 +'+(dp===null?'—':dp)+'</div>';
       }},
     {name:'近7日差评', sortable:true, numeric:true,
       key:function(s){ var y=s.week||s.yesterday; return y? num(y.bad):null;},
@@ -322,15 +305,25 @@
         return '<div>当日 +'+(d===null?'—':d)+'</div>'+
                '<div class="cell-sub">本月 '+(m===null?'—':m)+'</div>';
       }},
-    {name:'本月累计', sortable:true, numeric:true,
-      key:function(s){ return goodTotal(s.month);},
+    {name:'本月累计好评', sortable:true, numeric:true,
+      key:function(s){ var m=s.month; if(!m) return null; return (num(m.mtGood)||0)+(num(m.dpGood)||0);},
       render:function(s){
-        return goodCell(s.month);
+        var m=s.month;
+        if(!m) return DASH;
+        var mt=num(m.mtGood), dp=num(m.dpGood);
+        if(mt===null&&dp===null) return DASH;
+        return '<div>美团 '+(mt===null?'—':mt)+'</div>'+
+               '<div class="cell-sub">点评 '+(dp===null?'—':dp)+'</div>';
       }},
-    {name:'上月总计', sortable:true, numeric:true,
-      key:function(s){ return goodTotal(s.lastMonth);},
+    {name:'上月好评', sortable:true, numeric:true,
+      key:function(s){ var m=s.lastMonth; if(!m) return null; return (num(m.mtGood)||0)+(num(m.dpGood)||0);},
       render:function(s){
-        return goodCell(s.lastMonth);
+        var m=s.lastMonth;
+        if(!m) return DASH;
+        var mt=num(m.mtGood), dp=num(m.dpGood);
+        if(mt===null&&dp===null) return DASH;
+        return '<div>美团 '+(mt===null?'—':mt)+'</div>'+
+               '<div class="cell-sub">点评 '+(dp===null?'—':dp)+'</div>';
       }}
   ];
 
@@ -493,23 +486,9 @@
         '<span class="badge-dot" style="background:var(--bronze)"></span>'+bronze,
         (none?('暂无等级 '+none+' 家'):'金 / 银 / 铜'))+
       stat('近7日好评 · 美团', yMtN?'+'+yMt:DASH.replace(/<[^>]+>/g,'—'), '美团渠道近7天新增')+
-      stat('近7日好评 · 大众', yDpN?'+'+yDp:DASH.replace(/<[^>]+>/g,'—'), '大众渠道近7天新增')+
+      stat('近7日好评 · 点评', yDpN?'+'+yDp:DASH.replace(/<[^>]+>/g,'—'), '点评渠道近7天新增')+
       statBad('近7日差评', yBadN?yBad:'—', yBad>0?'需跟进处理':'近7天无差评')+
       stat('收藏打卡 · 当日', fDayN?'+'+fDay:'—', '本月累计 '+(fMonN?fMon:'—'));
-  }
-  function renderWarnings(d){
-    var el=document.getElementById('warningBanner');
-    if(!el) return;
-    var warnings=Array.isArray(d.warnings)?d.warnings:[];
-    if(!warnings.length){
-      el.style.display='none';
-      el.innerHTML='';
-      return;
-    }
-    el.style.display='block';
-    el.innerHTML='抓取提醒：'+warnings.map(function(w){
-      return esc((w&&w.message)||String(w||''));
-    }).join('；');
   }
   function stat(label,value,sub){
     return '<div class="stat"><div class="label">'+esc(label)+'</div>'+
@@ -550,14 +529,14 @@
         if(fd!==null){fDay+=fd;fDayN++;} if(fm!==null){fMon+=fm;fMonN++;} }
     });
     var total = num(d.storeCount)!==null ? d.storeCount : stores.length;
-    var HEADS=["门店","编码","区域","店长","牌级","经营评分","美团星级","点评星级","近7日好评·美团","近7日好评·大众","近7日差评","收藏打卡·当日","收藏打卡·本月","本月累计(美团/大众)","上月总计(美团/大众)"];
-    var WIDTHS=[180,60,70,60,55,60,60,60,80,80,65,75,75,110,110];
+    var HEADS=["门店","编码","区域","店长","牌级","经营评分","美团星级","点评星级","近7日好评·美团","近7日好评·点评","近7日差评","收藏打卡·当日","收藏打卡·本月","本月好评·美团","本月好评·点评","上月好评·美团","上月好评·点评"];
+    var WIDTHS=[180,60,70,60,55,60,60,60,80,80,65,75,75,70,70,70,70];
     var rows=[];
     rows.push("<Row>"+xCell("美团大众点评 · 门店线上运维看板","sTitle")+"</Row>");
     rows.push("<Row>"+xCell("数据日期 "+(d.dataDate||"—")+" · 更新于 "+(d.updatedAt||"—")+" · 共 "+total+" 家门店","sLbl")+"</Row>");
     rows.push("<Row></Row>");
     rows.push("<Row>"+xCell("门店总数","sLbl")+xCell(total+" 家","sNumB")+xCell("牌级分布","sLbl")+xCell("金 "+gold+" · 银 "+silver+" · 铜 "+bronze+(none?" · 暂无等级 "+none+" 家":""))+"</Row>");
-    rows.push("<Row>"+xCell("近7日好评 · 美团","sLbl")+xCell(yMt,"sGrnN","Number")+xCell("近7日好评 · 大众","sLbl")+xCell(yDp,"sGrnN","Number")+"</Row>");
+    rows.push("<Row>"+xCell("近7日好评 · 美团","sLbl")+xCell(yMt,"sGrnN","Number")+xCell("近7日好评 · 点评","sLbl")+xCell(yDp,"sGrnN","Number")+"</Row>");
     rows.push("<Row>"+xCell("近7日差评","sLbl")+(yBad>0?xCell(yBad,"sRedN","Number"):xCell(0,"sNum","Number"))+xCell("收藏打卡 · 当日","sLbl")+(fDayN?xCell(fDay,"sNumB","Number"):xCell("—"))+xCell("本月累计","sLbl")+(fMonN?xCell(fMon,"sNum","Number"):xCell("—"))+"</Row>");
     rows.push("<Row></Row>");
     rows.push("<Row>"+xCell("门店明细(共 "+stores.length+" 家 · 按经营评分降序)","sSec")+"</Row>");
@@ -568,6 +547,8 @@
       var label=s.code? s.code+"-"+branch : branch;
       var y=s.week||s.yesterday||{};
       var f=s.fav||{};
+      var mm=s.month||{};
+      var lm=s.lastMonth||{};
       rows.push("<Row>"+
         xCell(label)+xCell(s.code||"","sGray")+xCell(s.region||"","sGray")+xCell(s.manager||"","sGray")+
         xCell(gradeInfo(s.grade).text)+
@@ -579,7 +560,10 @@
         (num(y.bad)===null?xCell("—"):(y.bad>0?xCell(y.bad,"sRedN","Number"):xCell(y.bad,"sNum","Number")))+
         (num(f.day)===null?xCell("—"):xCell(f.day,"sNum","Number"))+
         (num(f.month)===null?xCell("—"):xCell(f.month,"sNum","Number"))+
-        xCell(goodText(s.month))+xCell(goodText(s.lastMonth))+"</Row>");
+        (num(mm.mtGood)===null?xCell("—"):xCell(mm.mtGood,"sNum","Number"))+
+        (num(mm.dpGood)===null?xCell("—"):xCell(mm.dpGood,"sNum","Number"))+
+        (num(lm.mtGood)===null?xCell("—"):xCell(lm.mtGood,"sNum","Number"))+
+        (num(lm.dpGood)===null?xCell("—"):xCell(lm.dpGood,"sNum","Number"))+"</Row>");
     });
     var endRow=rows.length;
     return '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n'+
@@ -593,6 +577,9 @@
       '<Style ss:ID="sGray"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#999999"/></Style>'+
       '<Style ss:ID="sNum"><NumberFormat ss:Format="General"/></Style>'+
       '<Style ss:ID="sNumB"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Bold="1"/><NumberFormat ss:Format="General"/></Style>'+
+      '<Style ss:ID="sPct"><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
+      '<Style ss:ID="sPctR"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>'+
+      '<Style ss:ID="sPctG"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="+0.0&quot;%&quot;;-0.0&quot;%&quot;"/></Style>'+
       '<Style ss:ID="sGrn"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/></Style>'+
       '<Style ss:ID="sGrnN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#5D8A5A"/><NumberFormat ss:Format="General"/></Style>'+
       '<Style ss:ID="sRedN"><Font ss:FontName="Microsoft YaHei" ss:Size="10" ss:Color="#C14B3A"/><NumberFormat ss:Format="General"/></Style>'+
@@ -619,7 +606,6 @@
   function render(d){
     if(!d || !Array.isArray(d.stores)) return;
     currentData=d;
-    renderWarnings(d);
     renderSummary(d);
     renderTools(d);
     renderHead();
